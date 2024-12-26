@@ -92,3 +92,8 @@ Cache pour les données météorologiques.
 ---
 
 ## Installation et Lancement
+
+- Php.init
+```bash
+extension=sodium
+```

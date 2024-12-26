@@ -34,7 +34,7 @@ final class UserFactory extends PersistentProxyObjectFactory
         return [
             'city' => self::faker()->city(),
             'password' => password_hash('password', PASSWORD_BCRYPT), // mot de passe par défaut pour les tests
-            'roles' => [self::faker()->randomElement(['user', 'admin'])],
+            'roles' => [self::faker()->randomElement(['ROLE_USER', 'ROLE_ADMIN'])],
             'username' => self::faker()->userName(),
         ];
     }

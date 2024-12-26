@@ -1,0 +1,59 @@
+security:
+    password_hashers:
+        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
+
+    providers:
+        app_user_provider:
+            entity:
+                class: App\Entity\User
+                property: username
+        # used to reload user from session & other features (e.g. switch_user)
+
+    firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
+
+        login:
+            pattern: ^/api/login
+            stateless: true
+            json_login:
+                check_path: /api/login
+                username_path: username
+                password_path: password
+
+        main:
+            stateless: true
+            provider: app_user_provider
+            jwt: ~  # Utilisation du firewall JWT pour toutes les autres routes protégées
+
+    access_control:
+        # Autoriser l'accès sans authentification à /advicenoauth
+        - { path: ^/advicenoauth, roles: PUBLIC_ACCESS  }
+        # Autoriser l'accès public à /login
+        - { path: ^/api/login, roles: PUBLIC_ACCESS }
+        - { path: ^/api/register, roles: PUBLIC_ACCESS }
+        # Protéger toutes les autres routes
+        - { path: ^/api, roles: ROLE_USER }
+
+# Monolog configuration
+monolog:
+    channels: ['security']
+    handlers:
+        security:
+            type: stream
+            path: '%kernel.logs_dir%/security.log'
+            level: debug
+            formatter: monolog.formatter.line
+            channels: ['security']
+
+    
+
+when@test:
+    security:
+        password_hashers:
+            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
+                algorithm: auto
+                cost: 4
+                time_cost: 3
+                memory_cost: 10
