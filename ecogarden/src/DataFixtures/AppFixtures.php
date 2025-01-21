@@ -6,7 +6,6 @@ use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 use App\Factory\AdviceFactory;
 use App\Factory\UserFactory;
-use App\Factory\WeatherFactory;
 
 class AppFixtures extends Fixture
 {
@@ -14,7 +13,6 @@ class AppFixtures extends Fixture
     {
         UserFactory::createMany(10);
         AdviceFactory::createMany(20);
-        WeatherFactory::createMany(15);
 
         $manager->flush();
     }
