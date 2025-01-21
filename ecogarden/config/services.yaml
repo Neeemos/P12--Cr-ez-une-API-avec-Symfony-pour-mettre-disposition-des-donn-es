@@ -3,7 +3,7 @@ services:
     _defaults:
         autowire: true      # Automatically injects dependencies in your services.
         autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
-
+    
     # Makes classes in src/ available to be used as services
     # This creates a service per class whose id is the fully-qualified class name
     App\:
@@ -12,7 +12,9 @@ services:
             - '../src/DependencyInjection/'
             - '../src/Entity/'
             - '../src/Kernel.php'
-
+    App\Service\MeteoService:
+        arguments:
+            $apiKey: '%openweather_api_key%'
     # Explicit service definition for LoginController
     App\Controller\LoginController:
         arguments:

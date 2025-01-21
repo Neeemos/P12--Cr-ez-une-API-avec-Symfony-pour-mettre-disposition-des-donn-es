@@ -7,7 +7,6 @@ security:
             entity:
                 class: App\Entity\User
                 property: username
-        # used to reload user from session & other features (e.g. switch_user)
 
     firewalls:
         dev:
@@ -15,10 +14,10 @@ security:
             security: false
 
         login:
-            pattern: ^/api/login
+            pattern: ^/auth
             stateless: true
             json_login:
-                check_path: /api/login
+                check_path: /auth
                 username_path: username
                 password_path: password
 
@@ -27,13 +26,15 @@ security:
             provider: app_user_provider
             jwt: ~  # Utilisation du firewall JWT pour toutes les autres routes protégées
 
+
     access_control:
         # Autoriser l'accès sans authentification à /advicenoauth
-        - { path: ^/advicenoauth, roles: PUBLIC_ACCESS  }
-        # Autoriser l'accès public à /login
-        - { path: ^/api/login, roles: PUBLIC_ACCESS }
-        - { path: ^/api/register, roles: PUBLIC_ACCESS }
-        # Protéger toutes les autres routes
+        - { path: ^/advicenoauth, roles: PUBLIC_ACCESS }
+        # Autoriser l'accès public à /auth
+        - { path: ^/auth, roles: PUBLIC_ACCESS }
+        # Autoriser l'accès public à /user (enregistrement)
+        - { path: ^/user, roles: PUBLIC_ACCESS }
+        # Protéger toutes les autres routes pour les utilisateurs authentifiés
         - { path: ^/api, roles: ROLE_USER }
 
 # Monolog configuration
@@ -46,8 +47,6 @@ monolog:
             level: debug
             formatter: monolog.formatter.line
             channels: ['security']
-
-    
 
 when@test:
     security:

@@ -16,7 +16,23 @@ class AdviceRepository extends ServiceEntityRepository
         parent::__construct($registry, Advice::class);
     }
 
-//    /**
+
+    /**
+     * Recherche les conseils contenant un mois spécifique.
+     *
+     * @param int $month Le mois à rechercher (1 à 12).
+     * @return Advice[] Retourne un tableau d'entités Advice.
+     */
+    public function findByMonth(int $month): array
+    {
+        return $this->createQueryBuilder('a')
+        ->andWhere('JSON_CONTAINS(a.months, :month) = 1')
+        ->setParameter('month', json_encode($month)) // Encode le mois en JSON
+        ->getQuery()
+        ->getResult();
+    }
+
+    //    /**
 //     * @return Advice[] Returns an array of Advice objects
 //     */
 //    public function findByExampleField($value): array
@@ -31,7 +47,7 @@ class AdviceRepository extends ServiceEntityRepository
 //        ;
 //    }
 
-//    public function findOneBySomeField($value): ?Advice
+    //    public function findOneBySomeField($value): ?Advice
 //    {
 //        return $this->createQueryBuilder('a')
 //            ->andWhere('a.exampleField = :val')

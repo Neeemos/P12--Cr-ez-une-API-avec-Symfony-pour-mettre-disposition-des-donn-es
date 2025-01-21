@@ -25,7 +25,7 @@ class LoginController extends AbstractController  // <-- Étendre AbstractContro
         $this->jwtManager = $jwtManager;
     }
 
-    #[Route('/api/login', name: 'app_login', methods: ['POST'])]
+    #[Route('/auth', name: 'app_login', methods: ['POST'])]
     public function index(): JsonResponse
     {
         $user = $this->security->getUser();
@@ -48,7 +48,7 @@ class LoginController extends AbstractController  // <-- Étendre AbstractContro
         ]);
     }
 
-    #[Route('/api/register', name: 'app_register', methods: ['POST'])]
+    #[Route('/user', name: 'app_register', methods: ['POST'])]
     public function register(
         Request $request,
         UserPasswordHasherInterface $passwordHasher,
@@ -59,8 +59,9 @@ class LoginController extends AbstractController  // <-- Étendre AbstractContro
         $user = new User();
         $user->setUsername(json_decode($body)->username);
         $user->setPassword($passwordHasher->hashPassword($user, json_decode($body)->password));
-        $user->setCity(json_decode($body)->city);
-
+        if (isset(json_decode($body)->city)) {
+            $user->setCity(json_decode($body)->city);
+        }
         $entityManager->persist($user);
         $entityManager->flush();
 

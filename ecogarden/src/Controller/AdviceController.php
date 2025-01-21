@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 use App\Repository\AdviceRepository;
+use App\Entity\Advice;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
@@ -12,88 +13,31 @@ use Symfony\Contracts\Cache\ItemInterface;
 use Psr\Log\LoggerInterface;
 use App\Repository\UserRepository;
 use DateTime;
-
+use App\Service\AdviceService;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
+use App\Utils\Validator;
+use App\Service\MeteoService;
 
 class AdviceController extends AbstractController
 {
     private HttpClientInterface $httpClient;
+    private AdviceService $adviceService;
 
-    public function __construct(HttpClientInterface $httpClient)
+    public function __construct(HttpClientInterface $httpClient, AdviceService $adviceService)
     {
         $this->httpClient = $httpClient;
+        $this->adviceService = $adviceService;
     }
 
-    #[Route('/advicenoauth', name: 'app_advicenoauth', methods: ['GET'])]
-    public function index(AdviceRepository $adviceRepository): JsonResponse
+    #[Route('/meteo/{city?}', name: 'app_weather', methods: ['GET'])]
+    public function weather(?string $city, MeteoService $meteoService): JsonResponse
     {
-        $advices = $adviceRepository->findAll();
-
-
-        return $this->json($advices);
-
-
-    }
-    #[Route('/api/admin', name: 'app_admintest', methods: ['GET'])]
-    public function admintest(AdviceRepository $adviceRepository): JsonResponse
-    {
-        $advices = $adviceRepository->findAll();
-
-
-        return $this->json($advices);
-
-
-    }
-
-    #[Route('/api/weather/{city?}', name: 'app_weather', methods: ['GET'])]
-    public function weither(?string $city, CacheInterface $cache, LoggerInterface $logger, UserRepository $userRepository): JsonResponse
-    {
-        $apiKey = $this->getParameter('openweather_api_key');
-
-        // Vérifier si `city` est null, récupérer la ville de l'utilisateur connecté
-        if ($city === null) {
-            $user = $this->getUser(); // Nécessite Symfony Security
-
-            $city = $user->getCity();
-            if (!$city) {
-                return new JsonResponse(['error' => 'Aucune ville associée à cet utilisateur'], 400);
-            }
-        }
-
-        $url = "https://api.openweathermap.org/data/2.5/weather?q=$city&units=metric&lang=fr&appid=$apiKey";
-        $cacheKey = 'weather_' . strtolower($city);
-
         try {
-            $data = $cache->getItem($cacheKey);
-
-            if (!$data->isHit()) {
-                $response = $this->httpClient->request('GET', $url);
-
-                if ($response->getStatusCode() !== 200) {
-                    throw new \Exception('Impossible de récupérer les données météo, verifier la ville');
-                }
-
-                $rawData = $response->toArray();
-
-                $data->set($rawData);
-                $data->expiresAfter(3600); // 1 heure
-                $cache->save($data);
-            } else {
-                $rawData = $data->get();
-            }
-
-            $filteredData = [
-                'country' => $rawData['sys']['country'] ?? null,
-                'city' => $rawData['name'] ?? null,
-                'temperature' => $rawData['main']['temp'] ?? null,
-                'weather_description' => $rawData['weather'][0]['description'] ?? null,
-                'wind' => [
-                    'speed' => $rawData['wind']['speed'] ?? null,
-                    'direction' => $rawData['wind']['deg'] ?? null,
-                ],
-            ];
-
-            return $this->json($filteredData);
-
+            $weatherData = $meteoService->getWeather($city);
+            
+            return $this->json($weatherData);
         } catch (\Exception $e) {
             return new JsonResponse(['error' => 'Une erreur est survenue : ' . $e->getMessage()], 500);
         }
@@ -101,66 +45,120 @@ class AdviceController extends AbstractController
 
 
 
-    #[Route('/api/advice/{month}', name: 'app_advice', methods: ['GET'], requirements: ['month' => '\d+'])]
-
-    public function getAdviceByMonth(string $month, AdviceRepository $adviceRepository): JsonResponse
+    #[Route('/conseil/{month}', name: 'app_advice', methods: ['GET'], requirements: ['month' => '\d+'])]
+    public function getAdviceByMonth(string $month): JsonResponse
     {
-        // Conversion du mois en entier pour la recherche
-        $monthInt = intval($month);
+        try {
+            $monthInt = intval($month);
+            $adviceData = $this->adviceService->getAdviceForMonth($monthInt);
 
-        // Vérifiez si le mois est valide
-        if ($monthInt < 1 || $monthInt > 12) {
-            return new JsonResponse(['error' => 'Mois invalide'], 400);
+            if (empty($adviceData)) {
+                return new JsonResponse(['error' => 'Aucun conseil trouvé'], 404);
+            }
+
+            return $this->json($adviceData);
+        } catch (\InvalidArgumentException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], 400);
         }
-
-        // Rechercher un conseil dans la base de données
-        $advice = $adviceRepository->findAll();
-
-        // Filtrer les conseils où le mois correspond
-        $filteredAdvice = array_filter($advice, function ($item) use ($monthInt) {
-            return in_array($monthInt, $item->getMonths());
-        });
-
-        if (empty($filteredAdvice)) {
-            return new JsonResponse(['error' => 'Aucun conseil trouvé'], 404);
-        }
-
-        //// Ajouter cache ////
-
-        // Préparer les données à retourner
-        $adviceData = array_map(function ($item) {
-            return $item->getText() ;
-        }, $filteredAdvice);
-
-        return $this->json($adviceData);
     }
 
-
-    #[Route('/api/advice/current', name: 'app_advice_current', methods: ['GET'])]
-    public function getCurrentMonthAdvice(AdviceRepository $adviceRepository): JsonResponse
+    #[Route('/conseil/', name: 'app_advice_current', methods: ['GET'])]
+    public function getCurrentMonthAdvice(): JsonResponse
     {
-        // Obtenir le mois actuel
-        $currentMonth = (new DateTime())->format('n');
+        try {
+            $currentMonth = (new DateTime())->format('n');
+            $adviceData = $this->adviceService->getAdviceForMonth((int) $currentMonth);
 
-        // Rechercher tous les conseils
-        $advice = $adviceRepository->findAll();
+            if (empty($adviceData)) {
+                return new JsonResponse(['error' => 'Aucun conseil trouvé pour le mois actuel'], 404);
+            }
 
-        // Filtrer les conseils pour le mois actuel
-        $filteredAdvice = array_filter($advice, function ($item) use ($currentMonth) {
-            return in_array($currentMonth, $item->getMonths());
-        });
+            return $this->json($adviceData);
+        } catch (\InvalidArgumentException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], 400);
+        }
+    }
 
-        if (empty($filteredAdvice)) {
-            return new JsonResponse(['error' => 'Aucun conseil trouvé pour le mois actuel'], 404);
+    #[Route('/conseil', name: 'app_advice_add', methods: ['POST'])]
+    #[IsGranted('ROLE_ADMIN')]
+    public function addAdvice(Request $request, EntityManagerInterface $entityManager, AuthorizationCheckerInterface $authChecker): JsonResponse
+    {
+
+        // Récupérer les données de la requête
+        $data = json_decode($request->getContent(), true);
+
+        $validationError = Validator::isValidAdviceData($data);
+        if ($validationError) {
+            return new JsonResponse($validationError, 400);
         }
 
-        // Préparer les données à retourner
-        $adviceData = array_map(function ($item) {
-            return $item->getText();
-        }, $filteredAdvice);
+        $months = array_map('intval', $data['month']);
+        $validationError = Validator::isValidMonth($months);
 
-        return new JsonResponse($adviceData);
+        if ($validationError) {
+            return new JsonResponse($validationError, 400);
+        }
+
+        // Créer un nouvel objet Advice
+        $advice = new Advice();
+        $advice->setText($data['advice']);
+        $advice->setMonths($months);
+
+        $entityManager->persist($advice);
+        $entityManager->flush();
+
+        return new JsonResponse(['message' => 'Conseil ajouté avec succès.'], 201);
     }
+
+    #[Route('/conseil/{id}', name: 'app_advice_update', methods: ['PUT'])]
+    #[IsGranted('ROLE_ADMIN')]
+    public function updateAdvice(
+        Advice $advice,
+        Request $request,
+        AdviceRepository $adviceRepository,
+        EntityManagerInterface $entityManager,
+        AuthorizationCheckerInterface $authChecker
+    ): JsonResponse {
+
+        // Décoder les données de la requête
+        $data = json_decode($request->getContent(), true);
+
+        $validationError = Validator::isValidAdviceData($data);
+        if ($validationError) {
+            return new JsonResponse($validationError, 400);
+        }
+
+        $months = array_map('intval', $data['month']);
+        $validationError = Validator::isValidMonth($months);
+
+        if ($validationError) {
+            return new JsonResponse($validationError, 400);
+        }
+
+        $advice->setText($data['advice']);
+        $advice->setMonths($months);
+
+        // Sauvegarder les modifications
+        $entityManager->persist($advice);
+        $entityManager->flush();
+
+        return new JsonResponse(['message' => 'Conseil mis à jour avec succès.'], 200);
+    }
+    #[Route('/conseil/{id}', name: 'app_advice_delete', methods: ['DELETE'])]
+    #[IsGranted('ROLE_ADMIN')]
+    public function deleteAdvice(
+        Advice $advice,
+        AdviceRepository $adviceRepository,
+        EntityManagerInterface $entityManager,
+        AuthorizationCheckerInterface $authChecker
+    ): JsonResponse {
+
+        $entityManager->remove($advice);
+        $entityManager->flush();
+
+        return new JsonResponse(['message' => 'Conseil supprimé avec succès.'], 200);
+    }
+
 
 }
 
