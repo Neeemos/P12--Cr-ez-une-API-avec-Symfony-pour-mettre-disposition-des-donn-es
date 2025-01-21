@@ -85,15 +85,84 @@ Cache pour les données météorologiques.
 
 ## Prérequis
 
-- Une base de données relationnelle pour stocker les entités `User`, `Advice`, et `Weather`.
-- Un système d'authentification basé sur JWT.
-- Une API météo externe pour les données actualisées (si le cache est obsolète).
-
+- Php.init
+```bash
+extension=sodium
+extension=openssl
+```
+- Openssl doit être accèssible en global
+```bash
+openssl version
+```
 ---
 
 ## Installation et Lancement
 
-- Php.init
+- Accéder au répertoire du projet
 ```bash
-extension=sodium
+cd .\ecogarden\
+```
+- Installer les dépendances avec Composer
+```bash
+composer install
+
+```
+- Configurer les variables d'environnement
+```bash
+# In all environments, the following files are loaded if they exist,
+# the latter taking precedence over the former:
+#
+#  * .env                contains default values for the environment variables needed by the app
+#  * .env.local          uncommitted file with local overrides
+#  * .env.$APP_ENV       committed environment-specific defaults
+#  * .env.$APP_ENV.local uncommitted environment-specific overrides
+#
+# Real environment variables win over .env files.
+#
+# DO NOT DEFINE PRODUCTION SECRETS IN THIS FILE NOR IN ANY OTHER COMMITTED FILES.
+# https://symfony.com/doc/current/configuration/secrets.html
+#
+# Run "composer dump-env prod" to compile .env files for production use (requires symfony/flex >=1.2).
+# https://symfony.com/doc/current/best_practices.html#use-environment-variables-for-infrastructure-configuration
+
+###> symfony/framework-bundle ###
+APP_ENV=dev
+APP_SECRET=secret_ici
+###< symfony/framework-bundle ###
+
+###> doctrine/doctrine-bundle ###
+# Format described at https://www.doctrine-project.org/projects/doctrine-dbal/en/latest/reference/configuration.html#connecting-using-a-url
+# IMPORTANT: You MUST configure your server version, either here or in config/packages/doctrine.yaml
+#
+# DATABASE_URL="sqlite:///%kernel.project_dir%/var/data.db"
+# DATABASE_URL="mysql://app:!ChangeMe!@127.0.0.1:3306/app?serverVersion=8.0.32&charset=utf8mb4"
+# DATABASE_URL="mysql://app:!ChangeMe!@127.0.0.1:3306/app?serverVersion=10.11.2-MariaDB&charset=utf8mb4"
+DATABASE_URL="mysql://username:password@127.0.0.1:3306/ecogarden?serverVersion=10.4.32-mariadb&charset=utf8mb4"
+charset=utf8"
+###< doctrine/doctrine-bundle ###
+
+###> lexik/jwt-authentication-bundle ###
+JWT_SECRET_KEY=%kernel.project_dir%/config/jwt/private.pem
+JWT_PUBLIC_KEY=%kernel.project_dir%/config/jwt/public.pem
+JWT_PASSPHRASE="votre_mot_de_passe"
+OPENWEATHER_API_KEY="votre_api_key"
+
+```
+
+-  Créer et mettre à jour la base de données
+```bash
+php bin/console doctrine:database:create
+php bin/console doctrine:migrations:migrate
+
+```
+
+-  Créer la configuration SSL pour le JWT
+```bash
+php bin/console lexik:jwt:generate-keypai
+```
+
+-  Lancer le serveur Symfony
+```bash
+symfony serve -d
+
 ```
