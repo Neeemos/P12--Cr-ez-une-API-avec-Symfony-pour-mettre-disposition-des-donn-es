@@ -16,7 +16,7 @@ services:
         arguments:
             $apiKey: '%openweather_api_key%'
     # Explicit service definition for LoginController
-    App\Controller\LoginController:
+    App\Controller\UserController:
         arguments:
             $security: '@security.helper'  # injection explicite du service 'security.helper'
         tags: ['controller.service_arguments'] # Taguer le service avec 'controller.service_arguments'

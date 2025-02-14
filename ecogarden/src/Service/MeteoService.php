@@ -5,7 +5,6 @@ namespace App\Service;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\Cache\CacheInterface;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\Security\Core\Security;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
 class MeteoService
@@ -30,19 +29,16 @@ class MeteoService
         $this->apiKey = $apiKey;
     }
 
-
     public function getCity(?string $city): string
     {
         // Si aucune ville n'est fournie, récupérer celle associée à l'utilisateur connecté
         if ($city === null) {
             // Récupérer l'utilisateur via le token JWT
             $token = $this->tokenStorage->getToken();
-            if ($token && $token->getUser()) {
-                // Récupérer la ville associée à l'utilisateur
-                $user = $token->getUser();
-                // Vérifier si l'utilisateur a la méthode `getCity`
-                $city = $user->getCity();
-            }
+            // Récupérer la ville associée à l'utilisateur
+            $user = $token->getUser();
+            // Vérifier si l'utilisateur a la méthode `getCity`
+            $city = $user->getCity();
 
             // Si toujours aucune ville, lancer une exception
             if (!$city) {

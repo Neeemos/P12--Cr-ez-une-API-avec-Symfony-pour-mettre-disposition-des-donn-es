@@ -35,7 +35,8 @@ security:
         # Autoriser l'accès public à /user (enregistrement)
         - { path: ^/user, roles: PUBLIC_ACCESS }
         # Protéger toutes les autres routes pour les utilisateurs authentifiés
-        - { path: ^/api, roles: ROLE_USER }
+        - { path: ^/conseil, roles: ROLE_USER }
+        - { path: ^/meteo, roles: ROLE_USER }
 
 # Monolog configuration
 monolog:

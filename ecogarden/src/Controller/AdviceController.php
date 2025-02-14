@@ -8,17 +8,13 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Contracts\Cache\CacheInterface;
-use Symfony\Contracts\Cache\ItemInterface;
-use Psr\Log\LoggerInterface;
-use App\Repository\UserRepository;
 use DateTime;
 use App\Service\AdviceService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use App\Utils\Validator;
-use App\Service\MeteoService;
+
 
 class AdviceController extends AbstractController
 {
@@ -31,20 +27,15 @@ class AdviceController extends AbstractController
         $this->adviceService = $adviceService;
     }
 
-    #[Route('/meteo/{city?}', name: 'app_weather', methods: ['GET'])]
-    public function weather(?string $city, MeteoService $meteoService): JsonResponse
-    {
-        try {
-            $weatherData = $meteoService->getWeather($city);
-            
-            return $this->json($weatherData);
-        } catch (\Exception $e) {
-            return new JsonResponse(['error' => 'Une erreur est survenue : ' . $e->getMessage()], 500);
-        }
-    }
-
-
-
+    /** 
+     * Recupérer tous les conseils pour un mois spéficie
+     * 
+     * @param string $month
+     * 
+     * @return JsonResponse
+     * 
+     * @throws \InvalidArgumentException
+     */
     #[Route('/conseil/{month}', name: 'app_advice', methods: ['GET'], requirements: ['month' => '\d+'])]
     public function getAdviceByMonth(string $month): JsonResponse
     {
@@ -56,12 +47,19 @@ class AdviceController extends AbstractController
                 return new JsonResponse(['error' => 'Aucun conseil trouvé'], 404);
             }
 
-            return $this->json($adviceData);
+            return new JsonResponse($adviceData, 200);
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['error' => $e->getMessage()], 400);
         }
     }
 
+    /** 
+     * Recupérer tous les conseils pour le mois actuel
+     * 
+     * @return JsonResponse
+     * 
+     * @throws \InvalidArgumentException
+     */
     #[Route('/conseil/', name: 'app_advice_current', methods: ['GET'])]
     public function getCurrentMonthAdvice(): JsonResponse
     {
@@ -73,12 +71,21 @@ class AdviceController extends AbstractController
                 return new JsonResponse(['error' => 'Aucun conseil trouvé pour le mois actuel'], 404);
             }
 
-            return $this->json($adviceData);
+            return new JsonResponse($adviceData, 200);
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['error' => $e->getMessage()], 400);
         }
     }
 
+    /** 
+     * Ajouter un conseil
+     * 
+     * @param Request $request
+     * 
+     * @return JsonResponse
+     * 
+     * @throws \InvalidArgumentException
+     */
     #[Route('/conseil', name: 'app_advice_add', methods: ['POST'])]
     #[IsGranted('ROLE_ADMIN')]
     public function addAdvice(Request $request, EntityManagerInterface $entityManager, AuthorizationCheckerInterface $authChecker): JsonResponse
@@ -144,6 +151,16 @@ class AdviceController extends AbstractController
 
         return new JsonResponse(['message' => 'Conseil mis à jour avec succès.'], 200);
     }
+
+    /** 
+     * supprimer un conseil
+     * 
+     * @param Advice $advice
+     * 
+     * @return JsonResponse
+     * 
+     * @throws \InvalidArgumentException
+     */
     #[Route('/conseil/{id}', name: 'app_advice_delete', methods: ['DELETE'])]
     #[IsGranted('ROLE_ADMIN')]
     public function deleteAdvice(
